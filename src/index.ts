@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { cache } from "hono/cache";
 import { handle } from "hono/netlify";
 import sharp from "sharp";
 import ConfigJson from "../config.json" assert { type: "json" };
+import { etag, RETAINED_304_HEADERS } from "hono/etag";
 
 const app = new Hono();
 
@@ -27,19 +27,10 @@ app.use(
 	}),
 );
 
-app.get(
-	"/image/*",
-	cache({
-		cacheName: "images",
-		cacheControl: "public, max-age=604800, must-revalidate",
-	}),
-);
-
-app.post(
-	"/v1/*",
-	cache({
-		cacheName: "api-proxy",
-		cacheControl: "public",
+app.use(
+	"/images/*",
+	etag({
+		retainedHeaders: ["x-message", ...RETAINED_304_HEADERS],
 	}),
 );
 
@@ -54,7 +45,10 @@ app.get("/images/:id", async (c) => {
 		return c.text("param error :(", 400);
 	}
 
-	const cache = imageCache.get(id);
+	const key = c.req.query("key");
+	const cacheKey = key ? `${id}:${key}` : id;
+
+	const cache = imageCache.get(cacheKey);
 
 	// 缓存
 	if (cache) {
@@ -80,7 +74,7 @@ app.get("/images/:id", async (c) => {
 		const images = await sharp(data).toFormat("webp").toBuffer();
 
 		// 缓存图片
-		imageCache.set(id, images);
+		imageCache.set(cacheKey, images);
 
 		return c.newResponse(images, 200, {
 			"Content-Type": "image/webp",
