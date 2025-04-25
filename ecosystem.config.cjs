@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 /**
  * @type {import('pm2').StartOptions[]}
  */
