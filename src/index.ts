@@ -92,4 +92,5 @@ app.get("/images/:id", async (c) => {
 
 export default {
 	fetch: handle(app),
+	port: ConfigJson.PORT,
 };

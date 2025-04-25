@@ -1,4 +1,5 @@
 {
+	"PORT": 3000,
 	"API_URL": "URL ...",
 	"ORIGIN": ["URL ..."]
 }
