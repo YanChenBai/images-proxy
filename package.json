@@ -1,0 +1,21 @@
+{
+	"name": "images-proxy",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@biomejs/biome": "1.9.4",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"scripts": {
+		"dev": "bun --watch run src/index.ts"
+	},
+	"dependencies": {
+		"hono": "^4.7.7",
+		"pm2": "^6.0.5",
+		"sharp": "^0.34.1"
+	}
+}
