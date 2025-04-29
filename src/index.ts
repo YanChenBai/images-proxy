@@ -6,7 +6,9 @@ import sharp from "sharp";
 import ConfigJson from "../config.json" assert { type: "json" };
 import { etag, RETAINED_304_HEADERS } from "hono/etag";
 import { serveStatic } from "hono/bun";
+import { ImageCache } from "./image-cache";
 
+const imageCache = new ImageCache(ConfigJson.API_URL, "webp", 10 * 1024 * 1024);
 const app = new Hono();
 
 app.use(csrf());
@@ -36,9 +38,7 @@ app.use(
 	}),
 );
 
-const { API_URL } = ConfigJson;
-const imageCache = new Map();
-
+// 图片代理
 app.get("/images/:id", async (c) => {
 	const id = c.req.param("id");
 
@@ -47,38 +47,14 @@ app.get("/images/:id", async (c) => {
 		return c.text("param error :(", 400);
 	}
 
-	const key = c.req.query("key");
-	const cacheKey = key ? `${id}:${key}` : id;
-
-	const cache = imageCache.get(cacheKey);
-
-	// 缓存
-	if (cache) {
-		return c.newResponse(cache, 200, {
-			"Content-Type": "image/webp",
-		});
-	}
-
 	try {
-		// 获取图片
-		const resp = await fetch(`${API_URL}/file/export?id=${id}`, {
-			method: "POST",
-		});
+		const buffer = await imageCache.get(id);
 
-		const data = await resp.arrayBuffer();
-
-		// 图片不存在
-		if (data.byteLength === 0) {
-			return c.text("not found :(", 404);
+		if (!buffer) {
+			throw new Error("not found :(");
 		}
 
-		// 转换图片
-		const images = await sharp(data).toFormat("webp").toBuffer();
-
-		// 缓存图片
-		imageCache.set(cacheKey, images);
-
-		return c.newResponse(images, 200, {
+		return c.newResponse(buffer, 200, {
 			"Content-Type": "image/webp",
 		});
 	} catch (error) {
@@ -86,11 +62,13 @@ app.get("/images/:id", async (c) => {
 	}
 });
 
+// 静态资源
 app.use(
 	"*",
 	serveStatic({
 		root: "./static",
 		rewriteRequestPath(path) {
+			// 这下路径下不需要重写路由
 			if (
 				path.includes("assets") ||
 				path.includes("favicon.ico") ||
