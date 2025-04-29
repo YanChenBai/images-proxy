@@ -2,13 +2,12 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { handle } from "hono/netlify";
 import { csrf } from "hono/csrf";
-import sharp from "sharp";
 import ConfigJson from "../config.json" assert { type: "json" };
 import { etag, RETAINED_304_HEADERS } from "hono/etag";
 import { serveStatic } from "hono/bun";
 import { ImageCache } from "./image-cache";
 
-const imageCache = new ImageCache(ConfigJson.API_URL, "webp", 10 * 1024 * 1024);
+const imageCache = new ImageCache(ConfigJson.API_URL, "webp");
 const app = new Hono();
 
 app.use(csrf());
@@ -39,16 +38,17 @@ app.use(
 );
 
 // 图片代理
-app.get("/images/:id", async (c) => {
+app.get("/images/:id/:name", async (c) => {
 	const id = c.req.param("id");
+	const name = c.req.param("name");
 
 	const regexp = /^[0-9]+$/;
-	if (!regexp.test(id)) {
+	if (!regexp.test(id) || !name) {
 		return c.text("param error :(", 400);
 	}
 
 	try {
-		const buffer = await imageCache.get(id);
+		const buffer = await imageCache.get([id, name]);
 
 		if (!buffer) {
 			throw new Error("not found :(");
