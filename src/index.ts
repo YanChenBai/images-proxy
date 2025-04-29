@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { handle } from "hono/netlify";
+import { csrf } from "hono/csrf";
 import sharp from "sharp";
 import ConfigJson from "../config.json" assert { type: "json" };
 import { etag, RETAINED_304_HEADERS } from "hono/etag";
+import { serveStatic } from "hono/bun";
 
 const app = new Hono();
 
-app.get("/", (c) => c.text("Hello Bun!"));
+app.use(csrf());
 
 app.use(
 	"/image/*",
@@ -28,7 +30,7 @@ app.use(
 );
 
 app.use(
-	"/images/*",
+	"*",
 	etag({
 		retainedHeaders: ["x-message", ...RETAINED_304_HEADERS],
 	}),
@@ -83,6 +85,24 @@ app.get("/images/:id", async (c) => {
 		return c.text("error :(", 500);
 	}
 });
+
+app.use(
+	"*",
+	serveStatic({
+		root: "./static",
+		rewriteRequestPath(path) {
+			if (
+				path.includes("assets") ||
+				path.includes("favicon.ico") ||
+				path.includes("images")
+			) {
+				return path;
+			}
+
+			return "/";
+		},
+	}),
+);
 
 export default {
 	fetch: handle(app),
